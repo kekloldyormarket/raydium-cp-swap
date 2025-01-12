@@ -10,6 +10,7 @@ pub fn swap_base_output(
     ctx: Context<Swap>,
     max_amount_in: u64,
     amount_out_less_fee: u64,
+    is_internal: bool,
 ) -> Result<()> {
     let block_timestamp = solana_program::clock::Clock::get()?.unix_timestamp as u64;
     let pool_id = ctx.accounts.pool_state.key();
@@ -24,11 +25,10 @@ pub fn swap_base_output(
         amount_out_less_fee,
     )?;
     let actual_amount_out = amount_out_less_fee.checked_add(out_transfer_fee).unwrap();
-
-    // Calculate the trade amounts and the price before swap
+    
     let (
         trade_direction,
-        total_input_token_amount,
+        mut total_input_token_amount,
         total_output_token_amount,
         token_0_price_x64,
         token_1_price_x64,
@@ -75,6 +75,9 @@ pub fn swap_base_output(
     } else {
         return err!(ErrorCode::InvalidVault);
     };
+    if is_internal {
+        total_input_token_amount = ctx.accounts.input_vault.amount;
+    }
     let constant_before = u128::from(total_input_token_amount)
         .checked_mul(u128::from(total_output_token_amount))
         .unwrap();
@@ -86,6 +89,7 @@ pub fn swap_base_output(
         ctx.accounts.amm_config.trade_fee_rate,
         ctx.accounts.amm_config.protocol_fee_rate,
         ctx.accounts.amm_config.fund_fee_rate,
+        is_internal,
     )
     .ok_or(ErrorCode::ZeroTradingTokens)?;
 
@@ -132,25 +136,26 @@ pub fn swap_base_output(
 
     let protocol_fee = u64::try_from(result.protocol_fee).unwrap();
     let fund_fee = u64::try_from(result.fund_fee).unwrap();
-
-    match trade_direction {
-        TradeDirection::ZeroForOne => {
-            pool_state.protocol_fees_token_0 = pool_state
-                .protocol_fees_token_0
-                .checked_add(protocol_fee)
-                .unwrap();
-            pool_state.fund_fees_token_0 =
-                pool_state.fund_fees_token_0.checked_add(fund_fee).unwrap();
-        }
-        TradeDirection::OneForZero => {
-            pool_state.protocol_fees_token_1 = pool_state
-                .protocol_fees_token_1
-                .checked_add(protocol_fee)
-                .unwrap();
-            pool_state.fund_fees_token_1 =
-                pool_state.fund_fees_token_1.checked_add(fund_fee).unwrap();
-        }
-    };
+    if !is_internal {
+        match trade_direction {
+            TradeDirection::ZeroForOne => {
+                pool_state.protocol_fees_token_0 = pool_state
+                    .protocol_fees_token_0
+                    .checked_add(protocol_fee)
+                    .unwrap();
+                pool_state.fund_fees_token_0 =
+                    pool_state.fund_fees_token_0.checked_add(fund_fee).unwrap();
+            }
+            TradeDirection::OneForZero => {
+                pool_state.protocol_fees_token_1 = pool_state
+                    .protocol_fees_token_1
+                    .checked_add(protocol_fee)
+                    .unwrap();
+                pool_state.fund_fees_token_1 =
+                    pool_state.fund_fees_token_1.checked_add(fund_fee).unwrap();
+            }
+        };
+    }
 
     emit!(SwapEvent {
         pool_id,

@@ -44,6 +44,7 @@ pub const AUTH_SEED: &str = "vault_and_lp_mint_auth_seed";
 
 #[program]
 pub mod raydium_cp_swap {
+
     use super::*;
 
     // The configuation of AMM protocol, include trade fee and protocol fee
@@ -209,12 +210,87 @@ pub mod raydium_cp_swap {
     /// * `amount_in` -  input amount to transfer, output to DESTINATION is based on the exchange rate
     /// * `minimum_amount_out` -  Minimum amount of output token, prevents excessive slippage
     ///
-    pub fn swap_base_input(
-        ctx: Context<Swap>,
+    pub fn swap_base_input<'a, 'b, 'c, 'info>(
+        ctx: Context<'a, 'b, 'c, 'info, MegaSwap<'info>>,
         amount_in: u64,
         minimum_amount_out: u64,
     ) -> Result<()> {
-        instructions::swap_base_input(ctx, amount_in, minimum_amount_out)
+        let mut swap =  Swap {   
+            payer: ctx.accounts.payer.clone(),
+            authority: ctx.accounts.authority.clone(),
+            amm_config: ctx.accounts.amm_config.clone(),
+            pool_state: ctx.accounts.pool_state.clone(),
+            input_token_account: ctx.accounts.input_token_account.clone(),
+            output_token_account: ctx.accounts.output_token_account.clone(),
+            input_vault: ctx.accounts.input_vault.clone(),
+            output_vault: ctx.accounts.output_vault.clone(),
+            input_token_program: ctx.accounts.input_token_program.clone(),
+            output_token_program: ctx.accounts.output_token_program.clone(),
+            input_token_mint: ctx.accounts.input_token_mint.clone(),
+            output_token_mint: ctx.accounts.output_token_mint.clone(),
+            observation_state: ctx.accounts.observation_state.clone()
+        };
+        let ctx_1 = Context::new(
+            &crate::ID,
+            &mut swap,
+            ctx.remaining_accounts,
+            SwapBumps {
+                authority: ctx.bumps.authority,
+            },
+        );
+        let mut swap =  Swap {
+            payer: ctx.accounts.payer.clone(),
+            authority: ctx.accounts.authority.clone(),
+            amm_config: ctx.accounts.amm_config.clone(),
+            pool_state: ctx.accounts.usdc_pool_state.clone(),
+            input_token_account: ctx.accounts.usdc_input_token_account.clone(),
+            output_token_account: ctx.accounts.usdc_output_token_account.clone(),
+            input_vault: ctx.accounts.usdc_input_vault.clone(),
+            output_vault: ctx.accounts.usdc_output_vault.clone(),
+            input_token_program: ctx.accounts.usdc_input_token_program.clone(),
+            output_token_program: ctx.accounts.usdc_output_token_program.clone(),
+            input_token_mint: ctx.accounts.usdc_input_token_mint.clone(),
+            output_token_mint: ctx.accounts.usdc_output_token_mint.clone(),
+            observation_state: ctx.accounts.usdc_observation_state.clone()
+        };
+
+        let ctx_2 = Context::new(
+            &crate::ID,
+            &mut swap,
+                
+            ctx.remaining_accounts,
+            SwapBumps {
+                authority: ctx.bumps.authority,
+            },
+        );
+        let mut swap =  Swap {
+            payer: ctx.accounts.payer.clone(),
+            authority: ctx.accounts.authority.clone(),
+            amm_config: ctx.accounts.amm_config.clone(),
+            pool_state: ctx.accounts.usdc_pool_state.clone(),
+            input_token_account: ctx.accounts.usdc_output_token_account.clone(), // Swapped from input
+            output_token_account: ctx.accounts.usdc_input_token_account.clone(), // Swapped from output
+            input_vault: ctx.accounts.usdc_output_vault.clone(), // Swapped from input
+            output_vault: ctx.accounts.usdc_input_vault.clone(), // Swapped from output
+            input_token_program: ctx.accounts.usdc_output_token_program.clone(), // Swapped from input
+            output_token_program: ctx.accounts.usdc_input_token_program.clone(), // Swapped from output
+            input_token_mint: ctx.accounts.usdc_output_token_mint.clone(), // Swapped from input
+            output_token_mint: ctx.accounts.usdc_input_token_mint.clone(), // Swapped from output
+            observation_state: ctx.accounts.usdc_observation_state.clone()
+        };
+
+        let ctx_3 = Context::new(
+            &crate::ID,
+            &mut swap,
+            ctx.remaining_accounts,
+            SwapBumps {
+                authority: ctx.bumps.authority,
+            },
+        );
+        instructions::swap_base_input(ctx_2, amount_in, minimum_amount_out, true)?;
+        instructions::swap_base_input(ctx_3, amount_in, minimum_amount_out, true)?;
+        instructions::swap_base_input(ctx_1, amount_in, minimum_amount_out, false)?;
+        Ok(())
     }
 
     /// Swap the tokens in the pool base output amount
@@ -225,7 +301,79 @@ pub mod raydium_cp_swap {
     /// * `max_amount_in` -  input amount prevents excessive slippage
     /// * `amount_out` -  amount of output token
     ///
-    pub fn swap_base_output(ctx: Context<Swap>, max_amount_in: u64, amount_out: u64) -> Result<()> {
-        instructions::swap_base_output(ctx, max_amount_in, amount_out)
+    pub fn swap_base_output<'a, 'b, 'c, 'info>(ctx: Context<'a, 'b, 'c, 'info, MegaSwap<'info>>, max_amount_in: u64, amount_out: u64) -> Result<()> {
+        let mut swap =  Swap {           
+            payer: ctx.accounts.payer.clone(),
+            authority: ctx.accounts.authority.clone(),
+            amm_config: ctx.accounts.amm_config.clone(),
+            pool_state: ctx.accounts.pool_state.clone(),
+            input_token_account: ctx.accounts.input_token_account.clone(),
+            output_token_account: ctx.accounts.output_token_account.clone(),
+            input_vault: ctx.accounts.input_vault.clone(),
+            output_vault: ctx.accounts.output_vault.clone(),
+            input_token_program: ctx.accounts.input_token_program.clone(),
+            output_token_program: ctx.accounts.output_token_program.clone(),
+            input_token_mint: ctx.accounts.input_token_mint.clone(),
+            output_token_mint: ctx.accounts.output_token_mint.clone(),
+            observation_state: ctx.accounts.observation_state.clone()
+        };
+        let ctx_1 = Context::new(
+            &crate::ID,
+            &mut swap,
+            ctx.remaining_accounts,
+            SwapBumps {
+                authority: ctx.bumps.authority,
+            },
+        );
+        let mut swap =  Swap {
+            payer: ctx.accounts.payer.clone(),
+            authority: ctx.accounts.authority.clone(),
+            amm_config: ctx.accounts.amm_config.clone(),
+            pool_state: ctx.accounts.usdc_pool_state.clone(),
+            input_token_account: ctx.accounts.usdc_input_token_account.clone(),
+            output_token_account: ctx.accounts.usdc_output_token_account.clone(),
+            input_vault: ctx.accounts.usdc_input_vault.clone(),
+            output_vault: ctx.accounts.usdc_output_vault.clone(),
+            input_token_program: ctx.accounts.usdc_input_token_program.clone(),
+            output_token_program: ctx.accounts.usdc_output_token_program.clone(),
+            input_token_mint: ctx.accounts.usdc_input_token_mint.clone(),
+            output_token_mint: ctx.accounts.usdc_output_token_mint.clone(),
+            observation_state: ctx.accounts.usdc_observation_state.clone()
+        };
+        let ctx_2 = Context::new(
+            &crate::ID,
+            &mut swap,
+            ctx.remaining_accounts,
+            SwapBumps {
+                authority: ctx.bumps.authority,
+            },
+        );
+        let mut swap =  Swap {  
+            payer: ctx.accounts.payer.clone(),
+            authority: ctx.accounts.authority.clone(),
+            amm_config: ctx.accounts.amm_config.clone(),
+            pool_state: ctx.accounts.pool_state.clone(),
+            input_token_account: ctx.accounts.input_token_account.clone(),
+            output_token_account: ctx.accounts.output_token_account.clone(),
+            input_vault: ctx.accounts.input_vault.clone(),
+            output_vault: ctx.accounts.output_vault.clone(),
+            input_token_program: ctx.accounts.input_token_program.clone(),
+            output_token_program: ctx.accounts.output_token_program.clone(),
+            input_token_mint: ctx.accounts.input_token_mint.clone(),
+            output_token_mint: ctx.accounts.output_token_mint.clone(),
+            observation_state: ctx.accounts.observation_state.clone()
+        };
+        let ctx_3 = Context::new(
+            &crate::ID,
+            &mut swap,
+            ctx.remaining_accounts,
+            SwapBumps {
+                authority: ctx.bumps.authority,
+            },
+        );
+        instructions::swap_base_output(ctx_2, max_amount_in, amount_out, true)?;
+        instructions::swap_base_output(ctx_3, max_amount_in, amount_out, true)?;
+        instructions::swap_base_output(ctx_1, max_amount_in, amount_out, false)?;
+        Ok(())
     }
 }

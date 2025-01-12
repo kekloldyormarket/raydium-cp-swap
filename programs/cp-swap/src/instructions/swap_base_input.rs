@@ -73,7 +73,85 @@ pub struct Swap<'info> {
     pub observation_state: AccountLoader<'info, ObservationState>,
 }
 
-pub fn swap_base_input(ctx: Context<Swap>, amount_in: u64, minimum_amount_out: u64) -> Result<()> {
+#[derive(Accounts)]
+pub struct MegaSwap<'info> {
+    /// The user performing the swap
+    pub payer: Signer<'info>,
+    /// CHECK: pool vault and lp mint authority
+    #[account(
+        seeds = [
+            crate::AUTH_SEED.as_bytes(),
+        ],
+        bump,
+    )]
+    pub authority: UncheckedAccount<'info>,
+
+    /// The config account for the AMM
+    pub amm_config: Box<Account<'info, AmmConfig>>,
+
+    /// The program account of the pool in which the swap will be performed
+    #[account(mut)]
+    pub pool_state: AccountLoader<'info, PoolState>,
+
+    /// The user token account for USDC
+    #[account(mut)]
+    pub input_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    /// The user token account for output token (either MINT_A or MINT_B)
+    #[account(mut)]
+    pub output_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    /// The vault token account for USDC
+    #[account(
+        mut,
+        constraint = input_vault.key() == pool_state.load()?.token_0_vault || input_vault.key() == pool_state.load()?.token_1_vault
+    )]
+    pub input_vault: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    /// The vault token account for output token
+    #[account(
+        mut,
+        constraint = output_vault.key() == pool_state.load()?.token_0_vault || output_vault.key() == pool_state.load()?.token_1_vault
+    )]
+    pub output_vault: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    /// SPL program for USDC transfers
+    pub input_token_program: Interface<'info, TokenInterface>,
+
+    /// SPL program for output token transfers
+    pub output_token_program: Interface<'info, TokenInterface>,
+
+    /// The mint of USDC
+    #[account(
+        address = input_vault.mint
+    )]
+    pub input_token_mint: Box<InterfaceAccount<'info, Mint>>,
+
+    /// The mint of output token (either MINT_A or MINT_B)
+    #[account(
+        address = output_vault.mint
+    )]
+    pub output_token_mint: Box<InterfaceAccount<'info, Mint>>,
+
+    /// The program account for the most recent oracle observation
+    #[account(mut, address = pool_state.load()?.observation_key)]
+    pub observation_state: AccountLoader<'info, ObservationState>,
+
+    pub usdc_mint: Box<InterfaceAccount<'info, Mint>>,
+    pub usdc_pool_state: AccountLoader<'info, PoolState>,
+    pub usdc_input_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
+    pub usdc_output_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
+    pub usdc_input_vault: Box<InterfaceAccount<'info, TokenAccount>>,
+    pub usdc_output_vault: Box<InterfaceAccount<'info, TokenAccount>>,
+    pub usdc_input_token_program: Interface<'info, TokenInterface>,
+    pub usdc_output_token_program: Interface<'info, TokenInterface>,
+    pub usdc_input_token_mint: Box<InterfaceAccount<'info, Mint>>,
+    pub usdc_output_token_mint: Box<InterfaceAccount<'info, Mint>>,
+    pub usdc_observation_state: AccountLoader<'info, ObservationState>,
+}
+
+
+pub fn swap_base_input(ctx: Context<Swap>, amount_in: u64, minimum_amount_out: u64, is_internal: bool) -> Result<()> {
     let block_timestamp = solana_program::clock::Clock::get()?.unix_timestamp as u64;
     let pool_id = ctx.accounts.pool_state.key();
     let pool_state = &mut ctx.accounts.pool_state.load_mut()?;
@@ -92,7 +170,7 @@ pub fn swap_base_input(ctx: Context<Swap>, amount_in: u64, minimum_amount_out: u
     // Calculate the trade amounts and the price before swap
     let (
         trade_direction,
-        total_input_token_amount,
+        mut total_input_token_amount,
         total_output_token_amount,
         token_0_price_x64,
         token_1_price_x64,
@@ -139,6 +217,10 @@ pub fn swap_base_input(ctx: Context<Swap>, amount_in: u64, minimum_amount_out: u
     } else {
         return err!(ErrorCode::InvalidVault);
     };
+
+    if is_internal {
+        total_input_token_amount = ctx.accounts.input_vault.amount;
+    }
     let constant_before = u128::from(total_input_token_amount)
         .checked_mul(u128::from(total_output_token_amount))
         .unwrap();
@@ -150,6 +232,7 @@ pub fn swap_base_input(ctx: Context<Swap>, amount_in: u64, minimum_amount_out: u
         ctx.accounts.amm_config.trade_fee_rate,
         ctx.accounts.amm_config.protocol_fee_rate,
         ctx.accounts.amm_config.fund_fee_rate,
+        is_internal
     )
     .ok_or(ErrorCode::ZeroTradingTokens)?;
 
@@ -193,25 +276,26 @@ pub fn swap_base_input(ctx: Context<Swap>, amount_in: u64, minimum_amount_out: u
 
     let protocol_fee = u64::try_from(result.protocol_fee).unwrap();
     let fund_fee = u64::try_from(result.fund_fee).unwrap();
-
-    match trade_direction {
-        TradeDirection::ZeroForOne => {
-            pool_state.protocol_fees_token_0 = pool_state
-                .protocol_fees_token_0
-                .checked_add(protocol_fee)
-                .unwrap();
-            pool_state.fund_fees_token_0 =
-                pool_state.fund_fees_token_0.checked_add(fund_fee).unwrap();
-        }
-        TradeDirection::OneForZero => {
-            pool_state.protocol_fees_token_1 = pool_state
-                .protocol_fees_token_1
-                .checked_add(protocol_fee)
-                .unwrap();
-            pool_state.fund_fees_token_1 =
-                pool_state.fund_fees_token_1.checked_add(fund_fee).unwrap();
-        }
-    };
+    if !is_internal {
+        match trade_direction {
+            TradeDirection::ZeroForOne => {
+                pool_state.protocol_fees_token_0 = pool_state
+                    .protocol_fees_token_0
+                    .checked_add(protocol_fee)
+                    .unwrap();
+                pool_state.fund_fees_token_0 =
+                    pool_state.fund_fees_token_0.checked_add(fund_fee).unwrap();
+            }
+            TradeDirection::OneForZero => {
+                pool_state.protocol_fees_token_1 = pool_state
+                    .protocol_fees_token_1
+                    .checked_add(protocol_fee)
+                    .unwrap();
+                pool_state.fund_fees_token_1 =
+                    pool_state.fund_fees_token_1.checked_add(fund_fee).unwrap();
+            }
+        };
+    }
 
     emit!(SwapEvent {
         pool_id,

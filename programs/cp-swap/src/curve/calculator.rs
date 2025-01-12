@@ -97,6 +97,7 @@ impl CurveCalculator {
         trade_fee_rate: u64,
         protocol_fee_rate: u64,
         fund_fee_rate: u64,
+        is_internal: bool,
     ) -> Option<SwapResult> {
         // debit the fee to calculate the amount swapped
         let trade_fee = Fees::trading_fee(source_amount, trade_fee_rate)?;
@@ -110,17 +111,29 @@ impl CurveCalculator {
             swap_source_amount,
             swap_destination_amount,
         );
-
-        Some(SwapResult {
-            new_swap_source_amount: swap_source_amount.checked_add(source_amount)?,
-            new_swap_destination_amount: swap_destination_amount
+        if !is_internal {
+            Some(SwapResult {
+                new_swap_source_amount: swap_source_amount.checked_add(source_amount)?,
+                new_swap_destination_amount: swap_destination_amount
                 .checked_sub(destination_amount_swapped)?,
             source_amount_swapped: source_amount,
             destination_amount_swapped,
-            trade_fee,
-            protocol_fee,
-            fund_fee,
-        })
+                trade_fee,
+                protocol_fee,
+                fund_fee,
+            })
+        } else {
+            Some(SwapResult {
+                new_swap_source_amount: swap_source_amount.checked_add(source_amount)?,
+                new_swap_destination_amount: swap_destination_amount
+                    .checked_sub(destination_amount_swapped)?,
+                source_amount_swapped: source_amount,
+                destination_amount_swapped,
+                trade_fee: 0,
+                protocol_fee: 0,
+                fund_fee: 0,
+            })
+        }
     }
 
     pub fn swap_base_output(
@@ -130,6 +143,7 @@ impl CurveCalculator {
         trade_fee_rate: u64,
         protocol_fee_rate: u64,
         fund_fee_rate: u64,
+        is_internal: bool,
     ) -> Option<SwapResult> {
         let source_amount_swapped = ConstantProductCurve::swap_base_output_without_fees(
             destinsation_amount,
@@ -143,16 +157,29 @@ impl CurveCalculator {
         let protocol_fee = Fees::protocol_fee(trade_fee, protocol_fee_rate)?;
         let fund_fee = Fees::fund_fee(trade_fee, fund_fee_rate)?;
 
-        Some(SwapResult {
-            new_swap_source_amount: swap_source_amount.checked_add(source_amount)?,
-            new_swap_destination_amount: swap_destination_amount
-                .checked_sub(destinsation_amount)?,
+        if !is_internal {
+            Some(SwapResult {
+                new_swap_source_amount: swap_source_amount.checked_add(source_amount)?,
+                new_swap_destination_amount: swap_destination_amount
+                    .checked_sub(destinsation_amount)?,
             source_amount_swapped: source_amount,
             destination_amount_swapped: destinsation_amount,
             trade_fee,
-            protocol_fee,
-            fund_fee,
-        })
+                protocol_fee,
+                fund_fee,
+            })
+        } else {
+            Some(SwapResult {
+                new_swap_source_amount: swap_source_amount.checked_add(source_amount_swapped)?,
+                new_swap_destination_amount: swap_destination_amount
+                    .checked_sub(destinsation_amount)?,
+                source_amount_swapped,
+                destination_amount_swapped: destinsation_amount,
+                trade_fee: 0,
+                protocol_fee: 0,
+                fund_fee: 0,
+            })
+        }
     }
 
     /// Get the amount of trading tokens for the given amount of pool tokens,
